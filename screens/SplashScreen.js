@@ -9,8 +9,7 @@ export default function SplashScreen({ navigation }) {
     const check = async () => {
       try {
         await new Promise((r) => setTimeout(r, 2000));
-        const hasSeenOnboarding =
-          await AsyncStorage.getItem("hasSeenOnboarding");
+        const hasSeenOnboarding = await AsyncStorage.getItem("hasSeenOnboarding");
         const admin = await AsyncStorage.getItem("admin");
         const user = await AsyncStorage.getItem("user");
 
@@ -43,32 +42,9 @@ export default function SplashScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#6200EE",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logo: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#fff",
-    marginTop: 8,
-    opacity: 0.9,
-  },
-  loading: {
-    color: "#fff",
-    marginTop: 10,
-  },
-  error: {
-    color: "yellow",
-    marginTop: 10,
-    paddingHorizontal: 20,
-    textAlign: "center",
-  },
+  container: { flex: 1, backgroundColor: "#6200EE", justifyContent: "center", alignItems: "center" },
+  logo: { fontSize: 26, fontWeight: "bold", color: "#fff", textAlign: "center" },
+  subtitle: { fontSize: 14, color: "#fff", marginTop: 8, opacity: 0.9 },
+  loading: { color: "#fff", marginTop: 10 },
+  error: { color: "yellow", marginTop: 10, paddingHorizontal: 20, textAlign: "center" },
 });

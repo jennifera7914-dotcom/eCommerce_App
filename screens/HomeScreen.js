@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { registerPushToken } from "../src/services/pushNotificationService";
 import {
   View,
   Text,
@@ -32,7 +33,7 @@ export default function HomeScreen({ navigation }) {
       setProducts(prodData);
       setCategories(catData);
     } catch (err) {
-      console.log('Error loading live store:', err.message);
+      console.log('Error loading:', err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -41,13 +42,13 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     loadDashboard(true);
+    registerPushToken("customer");
     const unsubscribe = navigation.addListener('focus', () => {
       loadDashboard(false);
     });
     return unsubscribe;
   }, [navigation, sortBy]);
 
-  // ✅ Simple 2-state stock badge
   const getStockBadge = (qty) => {
     const n = Number(qty ?? 0);
     if (n <= 0) return { label: 'Out of Stock', bg: '#FEE2E2', color: '#DC2626' };
@@ -98,30 +99,64 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* TOP BAR */}
+      {/* TOP BAR: ALL ICONS */}
       <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Text style={styles.iconText}>🏠</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.searchBarBtn}
           onPress={() => navigation.navigate('Search')}
         >
-          <Text style={styles.searchPlaceholder}>
-            🔍 Search cases, chargers, phone models...
-          </Text>
+          <Text style={styles.searchPlaceholder}>🔍 Search products...</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
-          style={[styles.adminBtn, { backgroundColor: PRIMARY }]}
-          onPress={() => navigation.navigate('AdminProducts')}
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('WishlistScreen')}
         >
-          <Text style={styles.adminBtnText}>⚙️ Admin</Text>
+          <Text style={styles.iconText}>❤️</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('Cart')}
+        >
+          <Text style={styles.iconText}>🛒</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('Orders')}
+        >
+          <Text style={styles.iconText}>📦</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('Chat')}
+        >
+          <Text style={styles.iconText}>💬</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => navigation.navigate('ProfileScreen')}
+        >
+          <Text style={styles.iconText}>👤</Text>
+        </TouchableOpacity>
+
+       
       </View>
 
       {loading ? (
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color={PRIMARY} />
-          <Text style={{ marginTop: 10, color: '#6B7280' }}>
-            Loading live store...
-          </Text>
+          <Text style={{ marginTop: 10, color: '#6B7280' }}>Loading...</Text>
         </View>
       ) : (
         <ScrollView
@@ -136,46 +171,37 @@ export default function HomeScreen({ navigation }) {
             />
           }
         >
-          {/* 1. CATEGORIES */}
+          {/* CATEGORIES */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>📂 Shop by Category</Text>
               <TouchableOpacity
                 onPress={() => navigation.navigate('Products', { category: 'All' })}
               >
-                <Text style={[styles.seeAll, { color: PRIMARY }]}>
-                  View All →
-                </Text>
+                <Text style={[styles.seeAll, { color: PRIMARY }]}>View All →</Text>
               </TouchableOpacity>
             </View>
 
             {categories.length === 0 ? (
-              <Text style={styles.emptyHint}>
-                No categories yet. Add categories in ⚙️ Admin!
-              </Text>
+              <Text style={styles.emptyHint}>No categories yet.</Text>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {categories.map((cat) => (
                   <TouchableOpacity
                     key={cat.id}
                     style={styles.categoryCard}
-                    onPress={() =>
-                      navigation.navigate('Products', { category: cat.name })
-                    }
+                    onPress={() => navigation.navigate('Products', { category: cat.name })}
                   >
                     <Text style={{ fontSize: 26 }}>{cat.icon || '📱'}</Text>
                     <Text style={styles.categoryName}>{cat.name}</Text>
-                    <Text style={styles.categoryCount}>
-                      {cat.productCount || 0} items
-                    </Text>
+                    <Text style={styles.categoryCount}>{cat.productCount || 0} items</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
           </View>
 
-
-          {/* 3. ALL PRODUCTS GRID + SORT */}
+          {/* ALL PRODUCTS */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>
@@ -183,11 +209,7 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginBottom: 12 }}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
               {[
                 { key: 'newest', label: 'Newest' },
                 { key: 'price-low', label: 'MRP: Low → High' },
@@ -195,18 +217,10 @@ export default function HomeScreen({ navigation }) {
               ].map((s) => (
                 <TouchableOpacity
                   key={s.key}
-                  style={[
-                    styles.sortPill,
-                    sortBy === s.key && styles.sortPillActive,
-                  ]}
+                  style={[styles.sortPill, sortBy === s.key && styles.sortPillActive]}
                   onPress={() => setSortBy(s.key)}
                 >
-                  <Text
-                    style={[
-                      styles.sortPillText,
-                      sortBy === s.key && styles.sortPillTextActive,
-                    ]}
-                  >
+                  <Text style={[styles.sortPillText, sortBy === s.key && styles.sortPillTextActive]}>
                     {s.label}
                   </Text>
                 </TouchableOpacity>
@@ -216,11 +230,7 @@ export default function HomeScreen({ navigation }) {
             {products.length === 0 ? (
               <View style={styles.emptyStoreBox}>
                 <Text style={{ fontSize: 38 }}>📦</Text>
-                <Text style={styles.emptyStoreTitle}>No products found</Text>
-                <Text style={styles.emptyStoreSub}>
-                  Tap "⚙️ Admin" at the top-right to add categories &
-                  products!
-                </Text>
+                <Text style={styles.emptyStoreTitle}>No products</Text>
               </View>
             ) : (
               <View style={styles.grid}>
@@ -238,29 +248,42 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   topBar: {
     flexDirection: 'row',
-    padding: 12,
+    padding: 8,
     backgroundColor: '#FFFFFF',
-    gap: 10,
     alignItems: 'center',
+    gap: 2,
     borderBottomWidth: 1,
     borderColor: '#E5E7EB',
+    flexWrap: 'wrap',
   },
+  iconBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconText: { fontSize: 20 },
+  adminIconBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminIconText: { fontSize: 18 },
   searchBarBtn: {
     flex: 1,
+    minWidth: 100,
     backgroundColor: '#F3F4F6',
     paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   searchPlaceholder: { color: '#6B7280', fontSize: 13 },
-  adminBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-  adminBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
   centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   section: { marginTop: 16, paddingHorizontal: 14 },
   sectionHeader: {
@@ -283,12 +306,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  categoryName: {
-    fontWeight: 'bold',
-    fontSize: 13,
-    color: '#1F2937',
-    marginTop: 6,
-  },
+  categoryName: { fontWeight: 'bold', fontSize: 13, color: '#1F2937', marginTop: 6 },
   categoryCount: { fontSize: 11, color: '#6B7280', marginTop: 2 },
   sortPill: {
     paddingHorizontal: 12,
@@ -300,11 +318,7 @@ const styles = StyleSheet.create({
   sortPillActive: { backgroundColor: '#111827' },
   sortPillText: { fontSize: 12, color: '#374151', fontWeight: '600' },
   sortPillTextActive: { color: '#FFFFFF' },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   card: {
     width: '48.5%',
     backgroundColor: '#FFFFFF',
@@ -316,13 +330,8 @@ const styles = StyleSheet.create({
   },
   horizontalCard: { width: 175, marginRight: 12 },
   imageBox: { width: '100%', height: 145, backgroundColor: '#F9FAFB' },
-    cardImage: { width: '100%', height: '100%', resizeMode: 'contain', backgroundColor: '#F9FAFB' },
-  placeholderImg: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  cardImage: { width: '100%', height: '100%', resizeMode: 'contain', backgroundColor: '#F9FAFB' },
+  placeholderImg: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   stockPill: {
     position: 'absolute',
     top: 8,
@@ -333,42 +342,10 @@ const styles = StyleSheet.create({
   },
   stockPillText: { fontSize: 10, fontWeight: 'bold' },
   cardBody: { padding: 10 },
-  brandText: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  productTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: 2,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
+  brandText: { fontSize: 11, color: '#6B7280', fontWeight: '600', textTransform: 'uppercase' },
+  productTitle: { fontSize: 14, fontWeight: 'bold', color: '#111827', marginTop: 2 },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   mrpText: { fontSize: 15, fontWeight: 'bold', color: '#111827' },
-  emptyStoreBox: {
-    backgroundColor: '#FFFFFF',
-    padding: 30,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  emptyStoreTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: 8,
-  },
-  emptyStoreSub: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 4,
-    textAlign: 'center',
-  },
+  emptyStoreBox: { backgroundColor: '#FFFFFF', padding: 30, borderRadius: 12, alignItems: 'center', marginTop: 6 },
+  emptyStoreTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827', marginTop: 8 },
 });

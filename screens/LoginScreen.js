@@ -9,7 +9,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { API_BASE_URL } from "../src/api/config";
+import { BACKEND_URL } from "../src/api/config";
 
 export default function LoginScreen({ navigation }) {
   const [identifier, setIdentifier] = useState("");
@@ -38,10 +38,10 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/login`, {
+                 const response = await fetch(`${BACKEND_URL}/api/user/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: idTrim, pin }),
+                body: JSON.stringify({ phone: idTrim, password: pin }),
       });
       const text = await response.text();
       let data = {};

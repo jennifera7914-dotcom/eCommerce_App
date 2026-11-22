@@ -7,8 +7,9 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Alert,
 } from "react-native";
-import { API_BASE_URL } from "../src/api/config";
+import { BACKEND_URL } from "../src/api/config";
 
 export default function ProfileScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -23,7 +24,7 @@ export default function ProfileScreen({ navigation }) {
         setUser(u);
         try {
           const res = await fetch(
-            `${API_BASE_URL}/api/admin/customers/${u.userId}`,
+            `${BACKEND_URL}/api/admin/customers/${u.userId}`,
           );
           if (res.ok) {
             const data = await res.json();
@@ -40,6 +41,14 @@ export default function ProfileScreen({ navigation }) {
     load();
   }, []);
 
+   const handleLogout = async () => {
+    await AsyncStorage.removeItem("user");
+    await AsyncStorage.removeItem("hasSeenOnboarding");
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "SplashScreen" }],
+    });
+  };
   if (loading) {
     return (
       <View style={styles.center}>
@@ -120,6 +129,11 @@ export default function ProfileScreen({ navigation }) {
       >
         To update details, please contact shop owner.
       </Text>
+
+      {/* LOGOUT BUTTON */}
+      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <Text style={styles.logoutText}>🚪 Logout</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -154,4 +168,17 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 12, marginTop: 8, color: "#666" },
   value: { fontSize: 16, fontWeight: "600", marginTop: 2, color: "#000" },
+  logoutBtn: {
+    backgroundColor: "#DC2626",
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  logoutText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
 });

@@ -1,35 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BACKEND_URL } from "./config";
 
 const TOKEN_KEY = "mobileshop_customer_token";
 
-// Silent sign-in: reuses the stored token, or creates a new customer.
+// Local session - no backend needed
 export async function ensureSession() {
-  const storedToken = await AsyncStorage.getItem(TOKEN_KEY);
-
-  const res = await fetch(`${BACKEND_URL}/api/customers/session`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: storedToken || "" }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Session request failed (${res.status})`);
+  let token = await AsyncStorage.getItem(TOKEN_KEY);
+  if (!token) {
+    token = "local_session_" + Date.now();
+    await AsyncStorage.setItem(TOKEN_KEY, token);
   }
-
-  const profile = await res.json();
-  await AsyncStorage.setItem(TOKEN_KEY, profile.token);
-  return profile;
+  return { token, name: "Customer" };
 }
 
 export async function fetchProfile(token) {
-  const res = await fetch(`${BACKEND_URL}/api/customers/me`, {
-    headers: { "X-Customer-Token": token || "" },
-  });
-  if (!res.ok) {
-    throw new Error(`Profile request failed (${res.status})`);
-  }
-  return res.json();
+  const stored = await AsyncStorage.getItem("user");
+  if (stored) return JSON.parse(stored);
+  return { token, name: "Customer" };
 }
 
 export function authHeaders(token) {

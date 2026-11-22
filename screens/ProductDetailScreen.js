@@ -16,11 +16,11 @@ import {
 } from 'react-native';
 import {
   productService,
-  cartService,
   wishlistService,
 } from '../services/productService';
 import { COLORS } from '../constants/colors';
 import { getImageUrl } from '../constants/api';
+import { useShop } from '../src/context/ShopContext';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -34,11 +34,10 @@ export default function ProductDetailScreen({ route, navigation }) {
   const [qtyError, setQtyError] = useState('');
   const [isInWishlist, setIsInWishlist] = useState(false);
   const [cartLoading, setCartLoading] = useState(false);
-
-  // Full-screen image viewer
   const [viewerVisible, setViewerVisible] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const flatListRef = useRef(null);
+  const { addToCart: shopAddToCart } = useShop();
 
   useEffect(() => {
     fetchProduct();
@@ -82,7 +81,6 @@ export default function ProductDetailScreen({ route, navigation }) {
     );
   }
 
-  // Build images array (only non-null images)
   const productImages = [product.image1, product.image2]
     .filter(Boolean)
     .map((img) => getImageUrl(img));
@@ -90,13 +88,10 @@ export default function ProductDetailScreen({ route, navigation }) {
   const stockQty = Number(product.stockQty ?? 0);
   const isOutOfStock = stockQty <= 0;
 
-  // Quick select buttons (10, 15, 20...)
   const handleQuantitySelect = (qty) => {
     const numQty = parseInt(qty);
     if (numQty > stockQty) {
-      setQtyError(
-        `Only ${stockQty} pieces are available. Please choose ${stockQty} or less.`
-      );
+      setQtyError(`Only ${stockQty} pieces are available. Please choose ${stockQty} or less.`);
       return;
     }
     setQuantity(qty.toString());
@@ -104,58 +99,61 @@ export default function ProductDetailScreen({ route, navigation }) {
     setQtyError('');
   };
 
-  // Custom quantity input — only numbers, inline error below
   const handleCustomQuantity = (text) => {
     const cleanText = text.replace(/[^0-9]/g, '');
     setCustomQuantity(cleanText);
     setQuantity('');
-
     if (text !== cleanText) {
       setQtyError('Only numbers can be entered here');
       return;
     }
-
     const numQty = parseInt(cleanText);
     if (!isNaN(numQty) && numQty > stockQty) {
-      setQtyError(
-        `Only ${stockQty} pieces are available. Please enter ${stockQty} or less.`
-      );
+      setQtyError(`Only ${stockQty} pieces are available. Please enter ${stockQty} or less.`);
     } else {
       setQtyError('');
     }
   };
 
   const finalQuantity = customQuantity || quantity;
-  const totalPrice = (parseInt(finalQuantity) || 0) * product.price;
 
-  const handleAddToCart = async () => {
+  // ===== ADD TO CART =====
+  const handleAddToCart = () => {
     const numQty = parseInt(finalQuantity);
     if (!finalQuantity || numQty <= 0) {
       setQtyError('Please enter a valid quantity');
       return;
     }
     if (numQty > stockQty) {
-      setQtyError(
-        `Only ${stockQty} pieces are available. Please enter ${stockQty} or less.`
-      );
+      setQtyError(`Only ${stockQty} pieces are available.`);
       return;
     }
     setQtyError('');
-
-    try {
-      setCartLoading(true);
-      await cartService.addToCart(product, numQty);
-      setCartLoading(false);
-      Alert.alert('Success', `Added ${numQty} units to cart!`, [
-        { text: 'Continue Shopping', onPress: () => navigation.goBack() },
-        { text: 'Go to Cart', onPress: () => navigation.navigate('Cart') },
-      ]);
-    } catch (err) {
-      setCartLoading(false);
-      Alert.alert('Error', 'Failed to add to cart');
-    }
+    setCartLoading(true);
+    shopAddToCart(product, numQty);
+    setCartLoading(false);
+    navigation.navigate('Cart');
   };
 
+  // ===== BUY NOW =====
+  const handleBuyNow = () => {
+    const numQty = parseInt(finalQuantity);
+    if (!finalQuantity || numQty <= 0) {
+      setQtyError('Please enter a valid quantity');
+      return;
+    }
+    if (numQty > stockQty) {
+      setQtyError(`Only ${stockQty} pieces are available.`);
+      return;
+    }
+    setQtyError('');
+    navigation.navigate('BuyScreen', {
+      product,
+      quantity: numQty,
+    });
+  };
+
+  // ===== WISHLIST =====
   const handleWishlist = async () => {
     try {
       if (isInWishlist) {
@@ -165,13 +163,14 @@ export default function ProductDetailScreen({ route, navigation }) {
       } else {
         await wishlistService.addToWishlist(product);
         setIsInWishlist(true);
-        Alert.alert('Added', 'Added to wishlist!');
+        Alert.alert('Added ❤️', 'Added to wishlist!');
       }
     } catch (err) {
       Alert.alert('Error', 'Failed to update wishlist');
     }
   };
 
+  // ===== SHARE =====
   const handleShare = async () => {
     try {
       await Share.share({
@@ -183,7 +182,6 @@ export default function ProductDetailScreen({ route, navigation }) {
     }
   };
 
-  // Open full-screen viewer
   const openViewer = (index) => {
     setViewerIndex(index);
     setViewerVisible(true);
@@ -191,28 +189,21 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* ===== IMAGE SECTION ===== */}
+      {/* IMAGE */}
       <View style={styles.imageSection}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => openViewer(selectedImage)}
-        >
+        <TouchableOpacity activeOpacity={0.9} onPress={() => openViewer(selectedImage)}>
           <Image
             source={{ uri: productImages[selectedImage] || null }}
             style={styles.mainImage}
             resizeMode="contain"
           />
         </TouchableOpacity>
-
         {productImages.length > 1 && (
           <View style={styles.imageIndicators}>
             {productImages.map((img, idx) => (
               <TouchableOpacity
                 key={idx}
-                style={[
-                  styles.indicator,
-                  selectedImage === idx && styles.indicatorActive,
-                ]}
+                style={[styles.indicator, selectedImage === idx && styles.indicatorActive]}
                 onPress={() => setSelectedImage(idx)}
               >
                 <Image source={{ uri: img }} style={styles.indicatorImage} />
@@ -220,7 +211,6 @@ export default function ProductDetailScreen({ route, navigation }) {
             ))}
           </View>
         )}
-
         {productImages.length > 1 && (
           <View style={styles.imageCounter}>
             <Text style={styles.imageCounterText}>
@@ -230,11 +220,10 @@ export default function ProductDetailScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* ===== PRODUCT INFO ===== */}
+      {/* PRODUCT INFO */}
       <View style={styles.infoSection}>
         <Text style={styles.productName}>{product.name}</Text>
 
-        {/* Pricing — no Save ₹X */}
         <View style={styles.priceContainer}>
           <Text style={styles.sellingPrice}>₹{product.price}</Text>
           {product.mrp > product.price && (
@@ -242,7 +231,6 @@ export default function ProductDetailScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* Stock Status */}
         <View
           style={[
             styles.statusContainer,
@@ -262,18 +250,16 @@ export default function ProductDetailScreen({ route, navigation }) {
           </Text>
         </View>
 
-        {/* Description */}
         <View style={styles.descriptionSection}>
           <Text style={styles.sectionTitle}>Description</Text>
           <Text style={styles.descriptionText}>{product.description}</Text>
         </View>
 
-        {/* Quantity Selector */}
+        {/* QUANTITY */}
         {!isOutOfStock && (
           <View style={styles.quantitySection}>
             <Text style={styles.sectionTitle}>Select Quantity (Bulk Pricing)</Text>
 
-            {/* Quick select buttons */}
             <View style={styles.quickSelectContainer}>
               {['10', '15', '20', '30', '40'].map((qty) => (
                 <TouchableOpacity
@@ -296,7 +282,6 @@ export default function ProductDetailScreen({ route, navigation }) {
               ))}
             </View>
 
-            {/* Custom quantity input with inline error */}
             <View style={styles.customQuantityContainer}>
               <Text style={styles.customQuantityLabel}>
                 Or enter custom quantity:
@@ -317,44 +302,47 @@ export default function ProductDetailScreen({ route, navigation }) {
               ) : null}
             </View>
 
-            {/* Selected quantity display */}
             <View style={styles.selectedQuantityContainer}>
               <View>
-                <Text style={styles.selectedQuantityLabel}>
-                  Selected Quantity:
-                </Text>
-                <Text style={styles.selectedQuantityValue}>
-                  {finalQuantity} units
-                </Text>
+                <Text style={styles.selectedQuantityLabel}>Selected Quantity:</Text>
+                <Text style={styles.selectedQuantityValue}>{finalQuantity} units</Text>
               </View>
               <View style={styles.totalPriceBox}>
                 <Text style={styles.totalPriceLabel}>Total:</Text>
-                <Text style={styles.totalPrice}>₹{totalPrice}</Text>
+                <Text style={styles.totalPrice}>
+                  ₹{(parseInt(finalQuantity) || 0) * product.price}
+                </Text>
               </View>
             </View>
           </View>
         )}
       </View>
 
-      {/* ===== ACTION BUTTONS ===== */}
+      {/* ===== 4 BUTTONS ===== */}
       <View style={styles.buttonSection}>
-        <TouchableOpacity
-          style={[
-            styles.addToCartButton,
-            isOutOfStock && styles.disabledButton,
-            cartLoading && { opacity: 0.6 },
-          ]}
-          onPress={handleAddToCart}
-          disabled={isOutOfStock || cartLoading}
-        >
-          <Text style={styles.addToCartButtonText}>
-            {cartLoading
-              ? 'Adding...'
-              : isOutOfStock
-              ? 'Out of Stock'
-              : '🛒 Add to Cart'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.mainButtonsRow}>
+          <TouchableOpacity
+            style={[
+              styles.addToCartButton,
+              isOutOfStock && styles.disabledButton,
+              cartLoading && { opacity: 0.6 },
+            ]}
+            onPress={handleAddToCart}
+            disabled={isOutOfStock || cartLoading}
+          >
+            <Text style={styles.addToCartButtonText}>
+              {isOutOfStock ? 'Out of Stock' : '🛒 Add to Cart'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.buyNowButton, isOutOfStock && styles.disabledButton]}
+            onPress={handleBuyNow}
+            disabled={isOutOfStock}
+          >
+            <Text style={styles.buyNowButtonText}>⚡ Buy Now</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.secondaryButtons}>
           <TouchableOpacity
@@ -377,7 +365,7 @@ export default function ProductDetailScreen({ route, navigation }) {
 
       <View style={styles.spacer} />
 
-      {/* ===== FULL-SCREEN IMAGE VIEWER ===== */}
+      {/* FULL-SCREEN VIEWER */}
       <Modal
         visible={viewerVisible}
         transparent
@@ -386,23 +374,17 @@ export default function ProductDetailScreen({ route, navigation }) {
         statusBarTranslucent
       >
         <View style={styles.viewerContainer}>
-          {/* Close Button */}
           <TouchableOpacity
             style={styles.viewerClose}
             onPress={() => setViewerVisible(false)}
-            activeOpacity={0.7}
           >
             <Text style={styles.viewerCloseText}>✕</Text>
           </TouchableOpacity>
-
-          {/* Image Counter */}
           <View style={styles.viewerCounter}>
             <Text style={styles.viewerCounterText}>
               {viewerIndex + 1} / {productImages.length}
             </Text>
           </View>
-
-          {/* Swipeable Images */}
           <FlatList
             ref={flatListRef}
             data={productImages}
@@ -416,68 +398,25 @@ export default function ProductDetailScreen({ route, navigation }) {
               index,
             })}
             onMomentumScrollEnd={(e) => {
-              const idx = Math.round(
-                e.nativeEvent.contentOffset.x / SCREEN_W
-              );
+              const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
               setViewerIndex(idx);
             }}
             keyExtractor={(item, idx) => idx.toString()}
             renderItem={({ item }) => (
               <View style={[styles.viewerImageWrapper, { width: SCREEN_W }]}>
-                <Image
-                  source={{ uri: item }}
-                  style={styles.viewerImage}
-                  resizeMode="contain"
-                />
+                <Image source={{ uri: item }} style={styles.viewerImage} resizeMode="contain" />
               </View>
             )}
           />
-
-          {/* Dot Indicators */}
           {productImages.length > 1 && (
             <View style={styles.viewerDots}>
               {productImages.map((_, idx) => (
                 <View
                   key={idx}
-                  style={[
-                    styles.viewerDot,
-                    viewerIndex === idx && styles.viewerDotActive,
-                  ]}
+                  style={[styles.viewerDot, viewerIndex === idx && styles.viewerDotActive]}
                 />
               ))}
             </View>
-          )}
-
-          {/* Left Arrow */}
-          {viewerIndex > 0 && (
-            <TouchableOpacity
-              style={styles.viewerNavLeft}
-              onPress={() => {
-                flatListRef.current?.scrollToOffset({
-                  offset: (viewerIndex - 1) * SCREEN_W,
-                  animated: true,
-                });
-                setViewerIndex(viewerIndex - 1);
-              }}
-            >
-              <Text style={styles.viewerNavArrow}>‹</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Right Arrow */}
-          {viewerIndex < productImages.length - 1 && (
-            <TouchableOpacity
-              style={styles.viewerNavRight}
-              onPress={() => {
-                flatListRef.current?.scrollToOffset({
-                  offset: (viewerIndex + 1) * SCREEN_W,
-                  animated: true,
-                });
-                setViewerIndex(viewerIndex + 1);
-              }}
-            >
-              <Text style={styles.viewerNavArrow}>›</Text>
-            </TouchableOpacity>
           )}
         </View>
       </Modal>
@@ -493,18 +432,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
-
-  /* ===== IMAGE ===== */
   imageSection: {
     backgroundColor: '#F3F4F6',
     paddingVertical: 20,
     position: 'relative',
   },
-  mainImage: {
-    width: '100%',
-    height: 300,
-    backgroundColor: '#F3F4F6',
-  },
+  mainImage: { width: '100%', height: 300, backgroundColor: '#F3F4F6' },
   imageIndicators: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -522,11 +455,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   indicatorActive: { borderColor: COLORS.primary, borderWidth: 3 },
-  indicatorImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
+  indicatorImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   imageCounter: {
     position: 'absolute',
     top: 30,
@@ -537,8 +466,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   imageCounterText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-
-  /* ===== INFO ===== */
   infoSection: { paddingHorizontal: 15, paddingVertical: 20 },
   productName: {
     fontSize: 22,
@@ -562,8 +489,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   mrp: { fontSize: 13, color: COLORS.textSecondary },
-
-  /* ===== STOCK ===== */
   statusContainer: {
     borderWidth: 2,
     borderRadius: 8,
@@ -573,8 +498,6 @@ const styles = StyleSheet.create({
   },
   statusLabel: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
   stockCount: { fontSize: 12, color: COLORS.textSecondary },
-
-  /* ===== DESCRIPTION ===== */
   descriptionSection: { marginBottom: 20 },
   sectionTitle: {
     fontSize: 16,
@@ -582,13 +505,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     marginBottom: 10,
   },
-  descriptionText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-  },
-
-  /* ===== QUANTITY ===== */
+  descriptionText: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 22 },
   quantitySection: {
     backgroundColor: '#F3F4F6',
     paddingHorizontal: 15,
@@ -614,18 +531,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  quickSelectText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
+  quickSelectText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
   quickSelectTextActive: { color: '#fff' },
   customQuantityContainer: { marginBottom: 15 },
-  customQuantityLabel: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
-  },
+  customQuantityLabel: { fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 },
   customQuantityInput: {
     backgroundColor: '#fff',
     borderWidth: 1,
@@ -636,10 +545,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textPrimary,
   },
-  customQuantityInputError: {
-    borderColor: '#DC2626',
-    borderWidth: 2,
-  },
+  customQuantityInputError: { borderColor: '#DC2626', borderWidth: 2 },
   qtyErrorText: {
     color: '#DC2626',
     fontSize: 12,
@@ -658,25 +564,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  selectedQuantityLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  selectedQuantityValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
+  selectedQuantityLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 },
+  selectedQuantityValue: { fontSize: 18, fontWeight: 'bold', color: COLORS.primary },
   totalPriceBox: { alignItems: 'flex-end' },
-  totalPriceLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
+  totalPriceLabel: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
   totalPrice: { fontSize: 20, fontWeight: 'bold', color: COLORS.primary },
 
-  /* ===== BUTTONS ===== */
+  /* ===== 4 BUTTONS ===== */
   buttonSection: {
     paddingHorizontal: 15,
     paddingVertical: 15,
@@ -685,38 +579,46 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
+  mainButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   addToCartButton: {
-    backgroundColor: COLORS.primary,
+    flex: 1,
+    backgroundColor: '#16A34A',
     paddingVertical: 15,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     elevation: 5,
   },
-  disabledButton: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.6,
+  buyNowButton: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    elevation: 5,
   },
-  addToCartButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  disabledButton: { backgroundColor: '#9CA3AF', opacity: 0.6 },
+  addToCartButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+  buyNowButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
   secondaryButtons: { flexDirection: 'row', gap: 10 },
   wishlistButton: {
     flex: 1,
     backgroundColor: '#F3F4F6',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#E5E7EB',
   },
-  wishlistButtonActive: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#DC2626',
-  },
+  wishlistButtonActive: { backgroundColor: '#FEE2E2', borderColor: '#DC2626' },
   wishlistButtonText: { fontSize: 24 },
   shareButton: {
     flex: 1,
     backgroundColor: '#F3F4F6',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#E5E7EB',
@@ -724,7 +626,7 @@ const styles = StyleSheet.create({
   shareButtonText: { fontSize: 20 },
   spacer: { height: 20 },
 
-  /* ===== FULL-SCREEN VIEWER ===== */
+  /* VIEWER */
   viewerContainer: {
     flex: 1,
     backgroundColor: '#000000',
@@ -743,11 +645,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  viewerCloseText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  viewerCloseText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   viewerCounter: {
     position: 'absolute',
     top: 55,
@@ -758,22 +656,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
   },
-  viewerCounterText: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  viewerCounterText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   viewerImageWrapper: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     width: SCREEN_W,
   },
-  viewerImage: {
-    width: SCREEN_W,
-    height: SCREEN_H,
-    backgroundColor: '#000',
-  },
+  viewerImage: { width: SCREEN_W, height: SCREEN_H, backgroundColor: '#000' },
   viewerDots: {
     position: 'absolute',
     bottom: 50,
@@ -787,27 +677,5 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'rgba(255,255,255,0.3)',
   },
-  viewerDotActive: {
-    backgroundColor: '#fff',
-    width: 20,
-  },
-  viewerNavLeft: {
-    position: 'absolute',
-    left: 10,
-    zIndex: 100,
-    padding: 20,
-  },
-  viewerNavRight: {
-    position: 'absolute',
-    right: 10,
-    zIndex: 100,
-    padding: 20,
-  },
-  viewerNavArrow: {
-    color: '#fff',
-    fontSize: 50,
-    fontWeight: 'bold',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowRadius: 10,
-  },
+  viewerDotActive: { backgroundColor: '#fff', width: 20 },
 });

@@ -1,0 +1,36 @@
+import React,{useState,useEffect} from "react";
+import {View,Text,Image,ScrollView,TouchableOpacity,StyleSheet} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fetchOrders, updateOrderStatus } from "../src/api/ordersApi";
+import {getImageUrl} from "../constants/api";
+import {BACKEND_URL} from "../src/api/config";
+
+export default function OrdersScreen({navigation}){
+  const [orders,setOrders]=useState([]);
+  const [confirmOrder,setConfirmOrder]=useState(null);
+  const [loadError,setLoadError]=useState("");
+  const load=async()=>{ const s=await AsyncStorage.getItem("user"); const p=s?JSON.parse(s):{}; const u=p.user?p.user:p; const uid=String(u.id||u.userId||""); try{ const data=await fetchOrders(uid); if(typeof setAllOrders==="function"){setAllOrders(data);}else{setOrders(data);} }catch(e){} };
+  useEffect(()=>{ load(); const u=navigation.addListener("focus",load); return u; },[navigation]);
+  const confirmDelivery=async()=>{ if(!confirmOrder) return; try{ await updateOrderStatus(confirmOrder.id,"Delivered"); }catch(e){ alert(e.message); } setConfirmOrder(null); load(); };
+  const current=orders.filter(o=>o.status!=="Delivered");
+  const past=orders.filter(o=>o.status==="Delivered");
+  const fmt=(iso)=>iso?new Date(iso).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}):"-";
+  const renderOrder=(o,isPast)=>(
+    <View key={o.id} style={styles.card}>
+      <View style={{flexDirection:"row",justifyContent:"space-between",alignItems:"center"}}><Text style={{fontWeight:"bold"}}>ORD{o.id}</Text><View style={[styles.statusPill,{backgroundColor:isPast?"#DCFCE7":"#FEF3C7"}]}><Text style={{fontSize:11,fontWeight:"bold",color:isPast?"#166534":"#B45309"}}>{isPast?"✓ Delivered":"● On the Way"}</Text></View></View>
+      <Text style={{color:"#666",fontSize:12,marginTop:4}}>Placed on: {fmt(o.placedAt||o.createdAt)} | {isPast?`Delivered: ${fmt(o.deliveryDate)}`:`Expected: ${fmt(o.deliveryDate)}`}</Text>
+      <View style={styles.progressRow}><View style={styles.step}><View style={[styles.dot,styles.dotActive]}/><Text style={styles.stepText}>Placed</Text></View><View style={[styles.line,styles.lineActive]}/><View style={styles.step}><View style={[styles.dot,styles.dotActive]}/><Text style={styles.stepText}>On the Way</Text></View><View style={[styles.line,isPast&&styles.lineActive]}/><View style={styles.step}><View style={[styles.dot,isPast&&styles.dotActive]}/><Text style={styles.stepText}>Delivered</Text></View></View>
+      {o.items.map((i,idx)=>{
+        const prodId=i.id||i.productId; const rawImg=i.image1||i.image||null; const imgUri=rawImg?(rawImg.startsWith("http")?rawImg:getImageUrl(rawImg)):null;
+        return (<TouchableOpacity key={idx} style={styles.productRow} onPress={()=>{ if(prodId) navigation.navigate("ProductDetail",{productId:prodId, product:{...i,id:prodId}}); }}><View style={styles.thumb}>{imgUri?<Image source={{uri:imgUri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>:<Text>📱</Text>}</View><View style={{flex:1}}><Text numberOfLines={1} style={{fontWeight:"600"}}>{i.name}</Text><Text style={{fontSize:12,color:"#666"}}>{i.quantity} x ₹{i.price} = ₹{i.quantity*i.price}</Text><Text style={styles.viewText}>Tap to view product ›</Text></View><Text style={styles.arrow}>›</Text></TouchableOpacity>);
+      })}
+      <View style={{flexDirection:"row",justifyContent:"space-between",marginTop:12,paddingTop:10,borderTopWidth:1,borderColor:"#EEE"}}><Text>Total Qty: {o.totalQuantity}</Text><Text style={{fontWeight:"bold",color:"#2563EB"}}>₹{o.total||o.totalAmount}</Text></View>
+      {!isPast && (<><Text style={{fontSize:12,color:"#666",marginTop:10,textAlign:"center"}}>Tap below only after you have received your items</Text><TouchableOpacity style={styles.confirmBtn} onPress={()=>setConfirmOrder(o)}><Text style={{color:"#fff",fontWeight:"bold"}}>✓ Confirm Delivery</Text></TouchableOpacity></>)}
+    </View>
+  );
+  if(orders.length===0) return <View style={{flex:1,justifyContent:"center",alignItems:"center",backgroundColor:"#F3F4F6",padding:20}}><Text style={{fontSize:50}}>📦</Text><Text style={{fontWeight:"bold",fontSize:18,marginTop:10}}>No Orders Yet</Text>{loadError?<Text style={{color:"#DC2626",marginTop:8}}>{loadError}</Text>:<Text style={{color:"#666",marginTop:6}}>Your orders will appear here</Text>}</View>;
+  return (<View style={{flex:1,backgroundColor:"#F3F4F6"}}><ScrollView><Text style={styles.section}>🚚 Current Orders ({current.length})</Text>{current.length===0?<Text style={styles.empty}>No current orders</Text>:current.map(o=>renderOrder(o,false))}<Text style={styles.section}>✅ Previous Orders ({past.length})</Text>{past.length===0?<Text style={styles.empty}>No previous orders</Text>:past.map(o=>renderOrder(o,true))}<View style={{height:30}}/></ScrollView>
+  {confirmOrder && (<View style={styles.overlay}><View style={styles.modalCard}><Text style={{fontSize:45}}>📦</Text><Text style={styles.modalTitle}>Confirm Delivery</Text><Text style={styles.modalText}>Have you received order ORD{confirmOrder.id}?</Text><TouchableOpacity style={styles.confirmModalBtn} onPress={confirmDelivery}><Text style={{color:"#fff",fontWeight:"bold"}}>Yes, I Received It</Text></TouchableOpacity><TouchableOpacity style={styles.cancelBtn} onPress={()=>setConfirmOrder(null)}><Text style={{fontWeight:"bold"}}>Not Yet</Text></TouchableOpacity></View></View>)}
+  </View>);
+}
+const styles=StyleSheet.create({section:{fontSize:16,fontWeight:"bold",padding:14,paddingBottom:4},empty:{paddingHorizontal:14,color:"#666"},card:{backgroundColor:"#fff",margin:10,marginBottom:4,padding:14,borderRadius:10,borderWidth:1,borderColor:"#E5E7EB"},statusPill:{paddingHorizontal:8,paddingVertical:4,borderRadius:12},progressRow:{flexDirection:"row",alignItems:"center",marginTop:14,marginBottom:4},step:{alignItems:"center",width:60},dot:{width:12,height:12,borderRadius:6,backgroundColor:"#D1D5DB"},dotActive:{backgroundColor:"#16A34A"},stepText:{fontSize:9,color:"#666",marginTop:4},line:{flex:1,height:2,backgroundColor:"#E5E7EB",marginBottom:14},lineActive:{backgroundColor:"#16A34A"},productRow:{flexDirection:"row",gap:10,marginTop:10,alignItems:"center",padding:8,borderRadius:8,backgroundColor:"#F9FAFB"},thumb:{width:50,height:50,backgroundColor:"#fff",borderRadius:6,justifyContent:"center",alignItems:"center",overflow:"hidden",borderWidth:1,borderColor:"#EEE"},viewText:{fontSize:11,color:"#2563EB",fontWeight:"600",marginTop:4},arrow:{fontSize:26,color:"#9CA3AF",fontWeight:"bold"},confirmBtn:{marginTop:8,backgroundColor:"#16A34A",padding:13,borderRadius:10,alignItems:"center"},overlay:{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:"rgba(0,0,0,0.6)",justifyContent:"center",alignItems:"center",zIndex:1000},modalCard:{backgroundColor:"#fff",borderRadius:16,padding:24,alignItems:"center",width:"88%"},modalTitle:{fontSize:20,fontWeight:"bold",marginTop:10},modalText:{textAlign:"center",color:"#555",marginTop:8,lineHeight:20},confirmModalBtn:{backgroundColor:"#16A34A",padding:14,borderRadius:10,alignItems:"center",marginTop:18,width:"100%"},cancelBtn:{backgroundColor:"#F3F4F6",padding:14,borderRadius:10,alignItems:"center",marginTop:10,width:"100%",borderWidth:1,borderColor:"#ccc"}});

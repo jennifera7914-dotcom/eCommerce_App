@@ -209,43 +209,38 @@ export const cartService = {
 };
 
 // ===== WISHLIST SERVICE (Kept intact) =====
+const getWishlistKey = async () => {
+  try {
+    const s = await AsyncStorage.getItem("user");
+    if (!s) return "wishlist_guest";
+    const u = JSON.parse(s);
+    return `wishlist_${u.id || u.userId || u.phone || "guest"}`;
+  } catch { return "wishlist_guest"; }
+};
+
 export const wishlistService = {
   getWishlist: async () => {
-    try {
-      const wishlist = await AsyncStorage.getItem('wishlist');
-      return wishlist ? JSON.parse(wishlist) : [];
-    } catch (error) {
-      return [];
-    }
+    try { const key = await getWishlistKey(); const w = await AsyncStorage.getItem(key); return w ? JSON.parse(w) : []; } catch { return []; }
   },
   addToWishlist: async (product) => {
     try {
+      const key = await getWishlistKey();
       const wishlist = await wishlistService.getWishlist();
-      if (!wishlist.find((item) => item.id === product.id)) {
-        wishlist.push({ ...product, addedAt: Date.now() });
-      }
-      await AsyncStorage.setItem('wishlist', JSON.stringify(wishlist));
+      if (!wishlist.find((item) => item.id === product.id)) wishlist.push({ ...product, addedAt: Date.now() });
+      await AsyncStorage.setItem(key, JSON.stringify(wishlist));
       return wishlist;
-    } catch (error) {
-      return [];
-    }
+    } catch { return []; }
   },
   removeFromWishlist: async (productId) => {
     try {
+      const key = await getWishlistKey();
       const wishlist = await wishlistService.getWishlist();
       const filtered = wishlist.filter((item) => item.id !== productId);
-      await AsyncStorage.setItem('wishlist', JSON.stringify(filtered));
+      await AsyncStorage.setItem(key, JSON.stringify(filtered));
       return filtered;
-    } catch (error) {
-      return [];
-    }
+    } catch { return []; }
   },
   isInWishlist: async (productId) => {
-    try {
-      const wishlist = await wishlistService.getWishlist();
-      return wishlist.some((item) => item.id === productId);
-    } catch (error) {
-      return false;
-    }
+    try { const wishlist = await wishlistService.getWishlist(); return wishlist.some((item) => item.id === productId); } catch { return false; }
   },
 };

@@ -1,9 +1,15 @@
-﻿import { NavigationContainer } from "@react-navigation/native";
+﻿import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { COLORS } from "../constants/colors";
+import BuyScreen from "../screens/BuyScreen";
+import OrdersScreen from "../screens/OrdersScreen";
+import WishlistScreen from "../screens/WishlistScreen";
 
 // ===== Member 1 Screens (Auth) =====
 import AdminDashboardScreen from "../screens/AdminDashboardScreen";
+import CustomerManagementScreen from "../screens/CustomerManagementScreen";
+import OwnerChatScreen from "../screens/OwnerChatScreen";
+import OwnerOrdersScreen from "../screens/OwnerOrdersScreen";
 import AdminLoginScreen from "../screens/AdminLoginScreen";
 import ChooseRoleScreen from "../screens/ChooseRoleScreen";
 import LoginScreen from "../screens/LoginScreen";
@@ -33,11 +39,12 @@ import ReturnScreen from "../src/screens/ReturnScreen";
 import { ShopProvider } from "../src/context/ShopContext";
 
 const Stack = createNativeStackNavigator();
+export const navigationRef = createNavigationContainerRef();
 
 export default function AppNavigator() {
   return (
     <ShopProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           initialRouteName="SplashScreen"
           screenOptions={{
@@ -72,11 +79,24 @@ export default function AppNavigator() {
             component={AdminLoginScreen}
             options={{ headerShown: false }}
           />
+
+          <Stack.Screen name="CustomerManagementScreen" component={CustomerManagementScreen} options={{ title: "Customer Management" }} />
           <Stack.Screen
             name="AdminDashboardScreen"
             component={AdminDashboardScreen}
             options={{ headerShown: false }}
           />
+
+          <Stack.Screen name="OwnerChatScreen" 
+          component={OwnerChatScreen} 
+          options={{ title: "Chat Management" }} 
+          />
+
+          <Stack.Screen name="OwnerOrdersScreen"
+           component={OwnerOrdersScreen} 
+           options={{ title: "Order Management" }}
+            />
+            
           <Stack.Screen
             name="ProfileScreen"
             component={ProfileScreen}
@@ -140,7 +160,7 @@ export default function AppNavigator() {
           />
           <Stack.Screen
             name="Orders"
-            component={OrderHistoryScreen}
+            component={OrdersScreen}
             options={{ title: "My orders" }}
           />
           <Stack.Screen
@@ -158,6 +178,16 @@ export default function AppNavigator() {
             component={ChatScreen}
             options={{ title: "Chat with shop" }}
           />
+                  <Stack.Screen
+          name="BuyScreen"
+          component={BuyScreen}
+          options={{ title: "Place Order" }}
+        />
+        <Stack.Screen
+          name="WishlistScreen"
+          component={WishlistScreen}
+          options={{ title: "My Wishlist" }}
+        />
           <Stack.Screen
             name="Notifications"
             component={NotificationsScreen}
